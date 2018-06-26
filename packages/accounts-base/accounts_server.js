@@ -758,7 +758,7 @@ Ap._initServerPublications = function () {
             profile: 1,
             username: 1,
             emails: 1,
-            partnerIds: 1
+            partnerId: 1
           }
         }),
         NC.Companies.find({
