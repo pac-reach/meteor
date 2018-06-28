@@ -728,7 +728,15 @@ Ap._initServerPublications = function () {
       if(Accounts._loginPublication) {
         return Accounts._loginPublication(this.userId);
       } else {
-        return null;
+        return accounts.users.find({
+          _id: this.userId
+        }, {
+          fields: {
+            profile: 1,
+            username: 1,
+            emails: 1
+          }
+        });
       }
     } else {
       return null;
