@@ -817,11 +817,12 @@ Meteor.methods({resetPassword: function (token, newPassword) {
       let passwordHistory = user.passwordHistory || [];
       passwordHistory.push(hashed);
 
-      const companySettings = NC && NC.CompanySettings ? NC.CompanySettings.findOne({ companyId: user.companyId }) : false;
       let historyLength = 2;
-
-      if (companySettings && typeof (companySettings.passwordHistoryLength) !== "undefined") {
-        historyLength = companySettings.passwordHistoryLength;
+      if (NC && NC.CompanySettings) {
+        const companySettings = NC.CompanySettings.findOne({ companyId: user.companyId });
+        if (companySettings && typeof (companySettings.passwordHistoryLength) !== "undefined") {
+          historyLength = companySettings.passwordHistoryLength;
+        }
       }
 
       if (historyLength) {
