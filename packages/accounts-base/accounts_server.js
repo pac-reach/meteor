@@ -688,10 +688,8 @@ export class AccountsServer extends AccountsCommon {
     this._server.publish(null, function () {
       if (this.userId) {
         if(Accounts._loginPublication) {
-          console.log("HAD LOGIN PUBLICATION");
           return Accounts._loginPublication(this.userId);
         } else {
-          console.log("NO LOGIN PUBLICATION");
           return users.find({
             _id: this.userId
           }, {
