@@ -78,7 +78,7 @@ extends CachingCompilerBase {
   }
 
   // The processFilesForTarget method from the Plugin.registerCompiler API.
-  processFilesForTarget(inputFiles) {
+  async processFilesForTarget(inputFiles) {
     const allFiles = new Map;
     const cacheKeyMap = new Map;
     const cacheMisses = [];
@@ -90,12 +90,12 @@ extends CachingCompilerBase {
       cacheKeyMap.set(importPath, this._getCacheKeyWithPath(inputFile));
     });
 
-    return Promise.all(inputFiles.map(async (inputFile) => {
+    inputFiles.forEach(inputFile => {
       if (arches) {
         arches[inputFile.getArch()] = 1;
       }
 
-      const getResult = async () => {
+      const getResult = () => {
         const absoluteImportPath = this.getAbsoluteImportPath(inputFile);
         const cacheKey = cacheKeyMap.get(absoluteImportPath);
         let cacheEntry = this._cache.get(cacheKey);
@@ -110,7 +110,7 @@ extends CachingCompilerBase {
           cacheMisses.push(inputFile.getDisplayPath());
 
           const compileOneFileReturn =
-            await this.compileOneFile(inputFile, allFiles);
+            Promise.await(this.compileOneFile(inputFile, allFiles));
 
           if (! compileOneFileReturn) {
             // compileOneFile should have called inputFile.error.
@@ -148,33 +148,44 @@ extends CachingCompilerBase {
       };
 
       if (this.compileOneFileLater &&
-          inputFile.supportsLazyCompilation &&
-          ! this._cacheDebugEnabled) {
-        await this.compileOneFileLater(inputFile, getResult);
+          inputFile.supportsLazyCompilation) {
+        if (! this.isRoot(inputFile)) {
+          // If this inputFile is definitely not a root, then it must be
+          // lazy, and this is our last chance to mark it as such, so that
+          // the rest of the compiler plugin system can avoid worrying
+          // about the MultiFileCachingCompiler-specific concept of a
+          // "root." If this.isRoot(inputFile) returns true instead, that
+          // classification may not be trustworthy, since returning true
+          // used to be the only way to get the file to be compiled, so
+          // that it could be imported later by a JS module. Now that
+          // files can be compiled on-demand, it's safe to pass all files
+          // that might be roots to this.compileOneFileLater.
+          inputFile.getFileOptions().lazy = true;
+        }
+        this.compileOneFileLater(inputFile, getResult);
       } else if (this.isRoot(inputFile)) {
-        const result = await getResult();
+        const result = getResult();
         if (result) {
           this.addCompileResult(inputFile, result);
         }
       }
-
-    })).then(() => {
-      if (! this._cacheDebugEnabled) {
-        return;
-      }
-
-      cacheMisses.sort();
-
-      this._cacheDebug(
-        `Ran (#${
-          ++this._callCount
-        }) on: ${
-          JSON.stringify(cacheMisses)
-        } ${
-          JSON.stringify(Object.keys(arches).sort())
-        }`
-      );
     });
+
+    if (this._cacheDebugEnabled) {
+      this._afterLinkCallbacks.push(() => {
+        cacheMisses.sort();
+
+        this._cacheDebug(
+          `Ran (#${
+            ++this._callCount
+          }) on: ${
+            JSON.stringify(cacheMisses)
+          } ${
+            JSON.stringify(Object.keys(arches).sort())
+          }`
+        );
+      });
+    }
   }
 
   // Returns a hash that incorporates both this.getCacheKey(inputFile) and
